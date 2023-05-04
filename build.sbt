@@ -9,7 +9,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root: Project = (project in file("."))
-    .aggregate(core)
+    .aggregate(core, userService, messageService)
 
 lazy val core = (project in file("modules/01-core/core"))
     .settings(
@@ -17,6 +17,12 @@ lazy val core = (project in file("modules/01-core/core"))
     )
 
 lazy val userService = (project in file("modules/02-service/chat-user-service"))
+    .dependsOn(core % "compile->compile;test->test")
+    .settings(
+        commonSettings,
+    )
+
+lazy val messageService = (project in file("modules/02-service/chat-message-service"))
     .dependsOn(core % "compile->compile;test->test")
     .settings(
         commonSettings,

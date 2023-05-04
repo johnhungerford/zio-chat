@@ -1,7 +1,5 @@
 package chat.service
 
-import zio.test.ZIOSpecDefault
-
 import zio.* 
 import zio.test.*
 import zio.direct.*

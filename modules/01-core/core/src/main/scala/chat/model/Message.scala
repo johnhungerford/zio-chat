@@ -29,6 +29,13 @@ object MessageTypes:
         override inline def assertion: Assertion[String] =
             Assertion.hasLength(Assertion.greaterThan(0))
 
+    type Channel = Channel.Type
+    object Channel
+        extends Subtype[NonEmptySet[UserHandle]]
+        with SubtypeCodec[NonEmptySet[UserHandle]](using DomainTypes.nonEmptySetCodec[UserHandle]):
+            def zio(value: NonEmptySet[UserHandle]): ZIO[Any, List[String], Channel] =
+                ZIO.fromEither(make(value).toEither.left.map(_.toList))
+
 import MessageTypes.*
 import DomainTypes.*
 
@@ -37,17 +44,16 @@ final case class Message(
     sender: UserHandle,
     recipients: NonEmptySet[UserHandle],
 ):
-    lazy val threadParticipants: Set[UserHandle] =
-        recipients + sender
+    lazy val channel: Channel = Channel.wrap(recipients + sender)
+
+    lazy val channelParticipants: NonEmptySet[UserHandle] = channel
 
     def submitted(timestamp: TimeStamp): SubmittedMessage =
         SubmittedMessage(body, sender, recipients, timestamp)
 
-    def submittedNow: ZIO[Any, List[String], SubmittedMessage] =
-        Clock.currentDateTime
-            .map(_.toLocalDateTime())
-            .flatMap(ldt => ZIO.fromEither(TimeStamp.make(ldt).toEither.left.map(_.toList)))
-            .map(ts => submitted(ts))
+    def submittedNow: ZIO[Any, Nothing, SubmittedMessage] =
+        TimeStamp.now.map(ts => submitted(ts))
+
 
 object Message:
     import DomainTypes.nonEmptySetCodec
@@ -59,12 +65,14 @@ final case class SubmittedMessage(
     recipients: NonEmptySet[UserHandle],
     timestamp: TimeStamp,
 ):
-    lazy val id: MessageId = (sender, recipients, timestamp)
+    lazy val id: MessageId = (sender, channel, timestamp)
+
+    lazy val channel: Channel =
+        message.channel
+
+    lazy val channelParticipants: NonEmptySet[UserHandle] = channel
 
     lazy val message: Message = Message(body, sender, recipients)
-
-    lazy val threadParticipants: Set[UserHandle] =
-        message.threadParticipants
 
 object SubmittedMessage:
     import DomainTypes.nonEmptySetCodec
