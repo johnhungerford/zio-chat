@@ -8,8 +8,8 @@ import zio.prelude.*
 
 enum Event:
     case MessageSubmission(submittedMessage: SubmittedMessage)
-    case MessageReceived(messageId: MessageId, userHandle: UserHandle)
-    case MessageRead(messageId: MessageId, userHandle: UserHandle)
+    case MessageReceived(messageId: MessageId, userHandle: UserHandle, channel: Channel)
+    case MessageRead(messageId: MessageId, userHandle: UserHandle, channel: Channel)
     case UserAdded(user: User)
     case UserUpdated(updates: User)
     case UserRemoved(userHandle: UserHandle)
@@ -25,4 +25,4 @@ type SubscriptionId = SubscriptionId.Type
 object SubscriptionId extends Subtype[String] with SubtypeCodec[String]:
     override inline def assertion: Assertion[String] =
             Assertion.matches("""[a-z0-9-]+""")
-                && Assertion.hasLength(Assertion.lessThanOrEqualTo(20))
+                && Assertion.hasLength(Assertion.lessThanOrEqualTo(30))

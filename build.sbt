@@ -31,7 +31,7 @@ lazy val messageService = (project in file("modules/02-service/chat-message-serv
     )
 
 lazy val eventService = (project in file("modules/02-service/chat-event-service"))
-    .dependsOn(core % "compile->compile;test->test")
+    .dependsOn(core % "compile->compile;test->test", messageService)
     .settings(
         commonSettings,
     )
