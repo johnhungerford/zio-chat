@@ -2,7 +2,9 @@ package chat.model
 
 import chat.model.UserTypes.*
 import chat.model.MessageTypes.*
+
 import zio.json.*
+import zio.prelude.* 
 
 enum Event:
     case MessageSubmission(submittedMessage: SubmittedMessage)
@@ -18,3 +20,9 @@ enum Event:
 object Event:
     import MessageId.given
     given JsonCodec[Event] = DeriveJsonCodec.gen
+
+type SubscriptionId = SubscriptionId.Type
+object SubscriptionId extends Subtype[String] with SubtypeCodec[String]:
+    override inline def assertion: Assertion[String] =
+            Assertion.matches("""[a-z0-9-]+""")
+                && Assertion.hasLength(Assertion.lessThanOrEqualTo(20))

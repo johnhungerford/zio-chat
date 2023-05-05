@@ -2,6 +2,7 @@ package chat.service
 
 import chat.model.*
 import DomainError.*
+import scala.collection.immutable.ListSet
 
 import zio.*
 import zio.direct.*
@@ -20,6 +21,7 @@ trait MessageService:
         channel: Option[Channel],
         sender: Option[UserHandle],
     ): ZIO[Any, IOError, List[SubmittedMessage]]
+    def userChannels(user: UserHandle): ZIO[Any, IOError, List[Channel]]
 
     private def getMessageRequestErrors(
         limit: Option[Int],
@@ -84,7 +86,13 @@ final case class InMemoryMessageService(
                 })
             }
             val newRepo = data.repository.updated(id, submittedMessage)
-            data.copy(newIndex, newRepo)
+            val newChannels = message.channel.foldLeft(data.userChannels) { (currentUserChannels, nextUser) =>
+                currentUserChannels.updatedWith(nextUser) {
+                    case Some(userChannelSet) => Some(userChannelSet + message.channel)
+                    case None => Some(ListSet(message.channel))
+                }
+            }
+            data.copy(newIndex, newRepo, newChannels)
         }).run
         ts
     }
@@ -115,13 +123,19 @@ final case class InMemoryMessageService(
             }
     }
 
+    override def userChannels(user: UserTypes.UserHandle): ZIO[Any, IOError, List[Channel]] = defer {
+        val data = dataRef.get.run
+        data.userChannels.get(user).toList.flatMap(_.toList)
+    }
+
 object InMemoryMessageService:
     final case class Data(
         index: Map[Option[Channel], Map[Option[UserHandle], List[(MessageId, TimeStamp)]]],
         repository: Map[MessageId, SubmittedMessage],
+        userChannels: Map[UserHandle, ListSet[Channel]],
     )
 
     object Data:
-        val empty = Data(Map.empty, Map.empty)
+        val empty = Data(Map.empty, Map.empty, Map.empty)
 
     lazy val live = ZLayer.fromZIO(Ref.make(Data.empty).map(InMemoryMessageService.apply))

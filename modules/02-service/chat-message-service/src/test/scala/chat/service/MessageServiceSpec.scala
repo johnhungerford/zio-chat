@@ -202,4 +202,54 @@ abstract class MessageServiceSpec[E](
                 )
             }
         } @@ TestAspect.withLiveClock,
+        test("userChannels should return all channels existing in the messages in which the given user in a member") {
+            defer {
+                val user1 = UserHandle("user-1")
+                val user2 = UserHandle("user-2")
+                val user3 = UserHandle("user-3")
+                val user4 = UserHandle("user-4")
+
+                val channel1Recipients = NonEmptySet(user1, user2)
+                val channel2Recipients = NonEmptySet(user2, user4)
+                val channel3Recipients = NonEmptySet(user1, user2, user3, user4)
+
+                val channel1user1Messages = messageList(15).run.map(_.copy(recipients = channel1Recipients, sender = user1))
+                val channel1user2Messages = messageList(15).run.map(_.copy(recipients = channel1Recipients, sender = user2))
+                val channel1Messages = channel1user1Messages.zip(channel1user2Messages).flatMap(_.toList)
+
+                val channel2User2Messages = messageList(15).run.map(_.copy(recipients = channel2Recipients, sender = user2))
+                val channel2User4Messages = messageList(15).run.map(_.copy(recipients = channel2Recipients, sender = user4))
+                val channel2Messages = channel2User2Messages.zip(channel2User4Messages).flatMap(_.toList)
+
+                val channel3User1Messages = messageList(8).run.map(_.copy(recipients = channel3Recipients, sender = user1))
+                val channel3User2Messages = messageList(8).run.map(_.copy(recipients = channel3Recipients, sender = user2))
+                val channel3User3Messages = messageList(8).run.map(_.copy(recipients = channel3Recipients, sender = user3))
+                val channel3User4Messages = messageList(8).run.map(_.copy(recipients = channel3Recipients, sender = user4))
+                val channel3Messages = channel3User1Messages.zip(channel3User2Messages).flatMap(_.toList)
+                    .zip(channel3User2Messages.zip(channel3User4Messages).flatMap(_.toList))
+                    .flatMap(_.toList)
+
+                val allMessages = channel3Messages ++ channel1Messages.zip(channel2Messages).flatMap(_.toList)
+
+                val service = ZIO.service[MessageService].provide(layer).run
+
+                ZIO.foreach(allMessages)(service.submitMessage).run
+
+                val user1Channels =
+                    service.userChannels(user1).run
+                val user2Channels =
+                    service.userChannels(user2).run
+                val user3Channels =
+                    service.userChannels(user3).run
+                val user4Channels =
+                    service.userChannels(user4).run
+
+                assertTrue(
+                    List(Channel(channel1Recipients), Channel(channel3Recipients)).toSet == user1Channels.toSet,
+                    List(Channel(channel1Recipients), Channel(channel2Recipients), Channel(channel3Recipients)).toSet == user2Channels.toSet,
+                    List(Channel(channel3Recipients)).toSet == user3Channels.toSet,
+                    List(Channel(channel2Recipients), Channel(channel3Recipients)).toSet == user4Channels.toSet,
+                )
+            }
+        } @@ TestAspect.withLiveClock
     )
